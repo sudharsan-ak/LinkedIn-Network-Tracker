@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <span class="logo">&#128101;</span>
+        <h1>LinkedIn Tracker</h1>
+      </div>
+
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p>Capturing profile...</p>
+      </div>
+
+      <div id="error-banner" class="banner banner--error hidden"></div>
+      <div id="success-banner" class="banner banner--success hidden"></div>
+
+      <form id="profile-form" class="hidden">
+        <div class="field">
+          <label for="url">LinkedIn URL</label>
+          <input type="text" id="url" readonly />
+        </div>
+
+        <div class="field">
+          <label for="name">Name</label>
+          <input type="text" id="name" />
+        </div>
+
+        <div class="field">
+          <label for="headline">Headline / Title</label>
+          <input type="text" id="headline" />
+        </div>
+
+        <div class="field">
+          <label for="company">Company</label>
+          <input type="text" id="company" />
+        </div>
+
+        <div class="field">
+          <label for="date">Date Captured</label>
+          <input type="text" id="date" readonly />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status"></select>
+          </div>
+
+          <div class="field">
+            <label for="referral">Referral</label>
+            <select id="referral"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="notes">Notes <span class="optional">(optional)</span></label>
+          <textarea id="notes" rows="3" placeholder="Add any notes..."></textarea>
+        </div>
+
+        <button type="button" id="submit-btn" class="btn btn--primary">
+          Save to Google Sheets
+        </button>
+      </form>
+
+    </div>
+
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
