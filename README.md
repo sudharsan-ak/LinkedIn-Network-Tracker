@@ -5,8 +5,12 @@ A Chrome extension to track LinkedIn connections and outreach — auto-captures 
 ## Features
 
 - Auto-captures Name, Headline, Company, and LinkedIn URL when you open the popup
-- Detects connection status automatically (Not Connected / Connection Sent / Connected)
+- Detects connection status automatically (Not Connected / Connection Sent / Connected / Message Sent)
+- Status is always read live from the page — never stale from the sheet
 - Checks Google Sheets first — loads existing entry if found, scrapes page if not
+- Popup closes instantly on save; save happens in the background
+- Green `✓` badge on the extension icon confirms a successful save; red `!` badge signals a failure
+- If a save fails, the next popup open pre-fills the failed data so you can retry
 - Saves and updates entries in Google Sheets via a Google Apps Script Web App
 - Color-coded Status column, dropdown validation, and configurable column widths
 
@@ -47,6 +51,7 @@ Navigate to any LinkedIn profile and click the extension icon. The popup will au
 ```
 ├── manifest.json
 ├── config.js
+├── background.js            # Service worker — handles background save + badge
 ├── popup.html / popup.js / styles.css
 ├── Code.gs                  # Google Apps Script backend
 ├── content/
