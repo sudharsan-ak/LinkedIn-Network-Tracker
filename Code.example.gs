@@ -12,13 +12,14 @@ var HEADERS = [
   "Date Captured",
 ];
 
-var STATUS_VALUES = ["Not Connected", "Connection Sent", "Connected"];
+var STATUS_VALUES = ["Not Connected", "Connection Sent", "Connected", "Message Sent"];
 var REFERRAL_VALUES = ["None", "Referral Asked", "Referral Given"];
 
 var STATUS_COLORS = {
   "Connected":       { bg: "#d4edda", font: "#155724" },
   "Not Connected":   { bg: "#f8d7da", font: "#721c24" },
   "Connection Sent": { bg: "#e2e3e5", font: "#383d41" },
+  "Message Sent":    { bg: "#cce5ff", font: "#004085" },
 };
 
 // Lookup by LinkedIn URL — called on popup open
@@ -196,43 +197,33 @@ function formatHeaderRow(sheet) {
   sheet.setColumnWidth(8, 110);  // Date Captured
 }
 
-// Run this to reformat the existing sheet with new column order + dropdowns
+// Reapplies headers, formatting, dropdowns, and status colors without touching data order
 function reformatExistingSheet() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) { setupSheet(); return; }
 
-  // Rearrange existing data: old order was URL(A), Name(B), Headline(C), Company(D), Date(E), Status(F), Referral(G), Notes(H)
-  // New order: Name(A), Headline(B), Company(C), Date(D), Status(E), Referral(F), URL(G), Notes(H)
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) {
-    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-    formatHeaderRow(sheet);
-    applyDropdownValidation(sheet);
-    return;
-  }
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
-  // Old order: Name(0), Headline(1), Company(2), Date(3), Status(4), Referral(5), URL(6), Notes(7)
-  // New order: Name, Headline, Company, Status, Referral, URL, Notes, Date
-  var reordered = data.map(function(row) {
-    return [row[0], row[1], row[2], row[4], row[5], row[6], row[7], row[3]];
-  });
-
-  sheet.clearContents();
+  // Rewrite header row
   sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-  sheet.getRange(2, 1, reordered.length, 8).setValues(reordered);
   formatHeaderRow(sheet);
+
+  if (lastRow < 2) return;
+
+  // Clear and reapply dropdowns
+  sheet.getRange(2, 1, sheet.getMaxRows() - 1, 8).clearDataValidations();
   applyDropdownValidation(sheet);
 
-  // Clear all background/font colors on data rows first, then reapply status colors only
-  var dataRange = sheet.getRange(2, 1, reordered.length, 8);
+  // Reapply status colors
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var dataRange = sheet.getRange(2, 1, data.length, 8);
   dataRange.setBackground(null);
   dataRange.setFontColor(null);
   dataRange.setFontWeight("normal");
 
-  reordered.forEach(function(row, i) {
-    applyStatusColor(sheet, i + 2, row[3]);
+  data.forEach(function(row, i) {
+    applyStatusColor(sheet, i + 2, row[3]); // col 4 = Status
   });
 }
 

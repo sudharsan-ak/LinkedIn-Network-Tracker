@@ -4,6 +4,8 @@ const loadingEl = document.getElementById("loading");
 const errorBanner = document.getElementById("error-banner");
 const successBanner = document.getElementById("success-banner");
 
+const FAILED_SAVE_KEY = "failedSave";
+
 function showError(msg) {
   errorBanner.textContent = msg;
   errorBanner.classList.remove("hidden");
@@ -53,6 +55,8 @@ function populateForm(details, status) {
   document.getElementById("company").value = details.company || "";
   document.getElementById("date").value = formatDate(details.date);
   document.getElementById("status").value = status || "Not Connected";
+  if (details.referral) document.getElementById("referral").value = details.referral;
+  if (details.notes) document.getElementById("notes").value = details.notes;
 }
 
 async function lookupInSheets(url) {
@@ -65,11 +69,39 @@ async function lookupInSheets(url) {
   return json.found ? json.data : null;
 }
 
+async function detectStatusFromPage(tabId) {
+  const statusResult = await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["content/detectStatus.js"],
+  });
+  return statusResult[0]?.result?.status || "Not Connected";
+}
+
+async function checkFailedSave() {
+  const result = await chrome.storage.local.get(FAILED_SAVE_KEY);
+  const failed = result[FAILED_SAVE_KEY];
+  if (!failed) return false;
+
+  // Pre-fill form with the failed payload and show error
+  const p = failed.payload;
+  populateForm(
+    { url: p.url, name: p.name, headline: p.headline, company: p.company, date: p.date, referral: p.referral, notes: p.notes },
+    p.status
+  );
+  profileForm.classList.remove("hidden");
+  showError(`Previous save failed: ${failed.error}. Review and hit Save to retry.`);
+  return true;
+}
+
 async function captureProfile() {
   clearBanners();
   loadingEl.classList.remove("hidden");
 
   try {
+    // Check for a previously failed save first
+    const hadFailure = await checkFailedSave();
+    if (hadFailure) return;
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab.url || !tab.url.includes("linkedin.com/in/")) {
@@ -78,30 +110,26 @@ async function captureProfile() {
 
     const currentUrl = tab.url.split("?")[0];
 
-    // Check sheets first — if entry exists, load it directly, trust the saved status
-    const existing = await lookupInSheets(currentUrl);
+    // Always detect live status from page — sheet data can be stale
+    const [existing, liveStatus] = await Promise.all([
+      lookupInSheets(currentUrl),
+      detectStatusFromPage(tab.id),
+    ]);
+
     if (existing) {
-      populateForm(existing, existing.status);
+      populateForm(existing, liveStatus);
       profileForm.classList.remove("hidden");
-      showSuccess("Loaded from Google Sheets. Editing existing entry.");
+      showSuccess("Loaded from Google Sheets. Status refreshed from page.");
       return;
     }
 
-    // New profile — scrape the page
-    const [detailsResult, statusResult] = await Promise.all([
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content/extractProfileDetails.js"],
-      }),
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content/detectStatus.js"],
-      }),
-    ]);
+    // New profile — scrape full details from page
+    const detailsResult = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content/extractProfileDetails.js"],
+    });
 
     const details = detailsResult[0]?.result;
-    const statusData = statusResult[0]?.result;
-
     if (!details) throw new Error("Could not extract profile details.");
 
     const missingFields = [];
@@ -111,7 +139,7 @@ async function captureProfile() {
       showError(`Could not auto-detect: ${missingFields.join(", ")}. Please fill in manually.`);
     }
 
-    populateForm(details, statusData?.status || "Not Connected");
+    populateForm(details, liveStatus);
     profileForm.classList.remove("hidden");
   } catch (err) {
     showError(err.message || "Something went wrong.");
@@ -136,24 +164,10 @@ async function submitToSheets() {
     notes: document.getElementById("notes").value,
   };
 
-  try {
-    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload),
-      redirect: "follow",
-    });
-
-    if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-    showSuccess("Saved to Google Sheets!");
-    submitBtn.textContent = "Saved!";
-    submitBtn.disabled = true;
-  } catch (err) {
-    showError("Failed to save. Check your Apps Script URL in config.js.");
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Save to Google Sheets";
-  }
+  // Store payload for background worker then close
+  await chrome.storage.local.set({ pendingSave: { payload, appsScriptUrl: CONFIG.APPS_SCRIPT_URL } });
+  chrome.runtime.sendMessage({ type: "SAVE_TO_SHEETS" });
+  window.close();
 }
 
 // Auto-capture on popup open
