@@ -164,6 +164,9 @@ async function submitToSheets() {
     notes: document.getElementById("notes").value,
   };
 
+  // Open a keep-alive port to prevent service worker from being killed during cold starts
+  chrome.runtime.connect({ name: "keepAlive" });
+
   // Store payload for background worker then close
   await chrome.storage.local.set({ pendingSave: { payload, appsScriptUrl: CONFIG.APPS_SCRIPT_URL } });
   chrome.runtime.sendMessage({ type: "SAVE_TO_SHEETS" });

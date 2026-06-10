@@ -1,5 +1,12 @@
 const FAILED_SAVE_KEY = "failedSave";
 
+// Keep service worker alive during long fetches (prevents cold-start kills)
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "keepAlive") {
+    port.onDisconnect.addListener(() => {});
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "SAVE_TO_SHEETS") {
     handleSave();
